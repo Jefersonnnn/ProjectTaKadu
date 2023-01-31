@@ -7,6 +7,7 @@
 <li>Módulo <code>psycopg2</code> para conexão com o banco de dados PostgreSQL</li>
 <li>Módulo <code>pandas</code> para manipulação de dados</li>
 <li>Módulo <code>rocketry</code></li>
+<li>Módulo <code>redmail</code></li>
 <li>Arquivo de configuração <code>database.ini</code> contendo as informações de conexão</li></ul>
 
 <h2>Configuração do Arquivo config.ini</h2>
