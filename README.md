@@ -11,7 +11,7 @@
 <li>Arquivo de configuração <code>database.ini</code> contendo as informações de conexão</li></ul>
 
 <h2>Configuração do Arquivo config.ini</h2>
-<p>Crie um arquivo <code>database.ini</code> na raiz do seu projeto com as seguintes informações de conexão:</p>
+<p>Crie um arquivo <code>config.ini</code> na raiz do seu projeto com as seguintes informações de conexão:</p>
 
 ```text
 [postgresql]
@@ -20,6 +20,10 @@ user = your_user
 password = your_password
 host = your_host
 port = your_port
+
+[default]
+PATH_FILE_ID_SENSORS = ./data/sensors.csv
+PATH_FOLDER_OUT = ./out
 ```
 <p> Para as notificações de erro funcionarem será necessário definir variáveis de ambiente.</p>
 
@@ -44,27 +48,14 @@ Observe que essas variáveis de ambiente só estarão disponíveis no terminal a
 
 ```mermaid
 graph LR;
-    A["API (FastAPI) fa:fa-globe"]
-    B[("Banco de Dados (PG) fa:fa-cubes")]
-    A --> B
-```
-
-### Teste 2
-- 1 Serviço de API
-- 1 Serviço de Banco de dados
-- 1 Serviço consumidor de tarefas (RQ)
-- 1 -Serviço de fila d emensagens (Redis)
-
-```mermaid
-graph TD;
-    A["API (FastAPI) fa:fa-globe"]
-    B[("Banco de Dados (PG) fa:fa-cubes")]
-    C>"Fila de mensagens (Redis) fa:fa-bars"]
-    D[["Consumidor de tarefas (RQ) fa:fa-gears"]]
+    A["TaKaDu Extractor fa:fa-globe"]
+    B[("BD Telelog (PG) fa:fa-cubes")]
+    C>"File. .csv fa:fa-bars"]
+    D["File .zip fa:fa-files"] 
     
-    A --> B
-    A --> C
-    D --> C
-    D --> B
-    
+    A -- Consulta últimas 24 horas --> B
+    B --> A
+    A -- Salvar dados em um .csv --> C
+    C --> D
+    D -- 15 minutos --> A
 ```

@@ -1,6 +1,5 @@
 import datetime
 import os
-import time
 import zipfile
 import csv
 import configparser
@@ -9,7 +8,7 @@ from pathlib import Path
 import psycopg2
 import pandas as pd
 
-from redmail import EmailHandler, EmailSender
+from redmail import EmailSender
 
 from rocketry import Rocketry
 from rocketry.conds import retry,  every
