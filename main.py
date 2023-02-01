@@ -30,9 +30,11 @@ handler.setFormatter(formatter)
 logger.addHandler(handler)
 logger.addHandler(logging.StreamHandler())
 #######################
+global PATH_FOLDER_OUT
+global PATH_FILE_ID_SENSORS
+#######################
 
 from logging import Handler
-
 
 class EmaillNotifyHandler(Handler):
 
@@ -40,6 +42,7 @@ class EmaillNotifyHandler(Handler):
         Handler.__init__(self, level)
 
         if not email:
+            logger.error("EmaillNotifyHandler: attr 'email' não informado!")
             raise Exception("attr 'email' não informado!")
         self._email = email
 
@@ -64,6 +67,9 @@ def initial_config(config_file_path):
         os.environ['PG_PASSWORD'] = os.environ.get('PG_PASSWORD', config['postgresql']['password'])
         os.environ['PG_HOST'] = os.environ.get('PG_HOST', config['postgresql']['host'])
         os.environ['PG_PORT'] = os.environ.get('PG_PORT', config['postgresql']['port'])
+
+        PATH_FOLDER_OUT = config['default']['PATH_FOLDER_OUT']
+        PATH_FILE_ID_SENSORS = config['default']['PATH_FILE_ID_SENSORS']
 
         error_notify_email_username =  os.environ.get('EMAIL_USERNAME', config['notify_outlook']['username'])
         error_notify_email_password =  os.environ.get('EMAIL_PASSWORD', config['notify_outlook']['password'])
@@ -111,9 +117,10 @@ def connect_to_postgres():
         return None
 
 
-def load_csv_list_sensors(path_file:str="./data/caj_sensors.csv", delimiter:str=";") -> list:
+def load_csv_list_sensors(path_file:str, delimiter:str=";") -> list:
     df_sensors = pd.read_csv(path_file, delimiter=delimiter)
     if not "Sensor" in df_sensors.columns:
+        logger.error(f"'Sensor' column not found in file: {path_file}")
         raise Exception(f"'Sensor' column not found in file: {path_file}")
     return df_sensors["Sensor"].tolist()
 
@@ -159,7 +166,7 @@ def load_data_from_db(conn, table_name, ids_sensors:list) -> tuple:
             return False, False
 
 
-def save_list_to_csv_and_zip(data_list:list, header:list, data_source_name="TELELOG", destination_folder=".\\toftp", zip_file=True):
+def save_list_to_csv_and_zip(data_list:list, header:list, data_source_name="TELELOG", destination_folder="./out", zip_file=True):
     """
     Save a list to .csv file and compress it in a .zip file.
     The .csv file will have a dynamic name with the following format: "DataSourceName_YYYYMMDDHH24MMSS.csv".
@@ -175,29 +182,28 @@ def save_list_to_csv_and_zip(data_list:list, header:list, data_source_name="TELE
         os.makedirs(destination_folder)
 
     now = datetime.datetime.now()
-    csv_file = f"{data_source_name}_{now.strftime('%Y%m%d%H%M%S')}.csv"
-    path_to_save_csv = os.path.join(destination_folder, csv_file)
+    csv_file = f"{data_source_name}_{now.strftime('%Y%m%d%H%M%S')}"
+    path_to_save_csv = os.path.join(destination_folder, csv_file + ".csv")
     _fetchall_to_csv(rows=data_list, header=header, csv_file=path_to_save_csv)
-    time.sleep(5)
 
     if zip_file:
         if not os.path.isfile(path_to_save_csv):
-            logger.error("File .csv not found.")
+            logger.error("save_list_to_csv_and_zip: File .csv not found.")
             raise Exception("File .csv not found.")
 
         zip_file_name = f"{csv_file}.zip"
         path_to_save_zip = os.path.join(destination_folder, zip_file_name)
         with zipfile.ZipFile(path_to_save_zip, 'w', zipfile.ZIP_DEFLATED) as myzip:
-            myzip.write(path_to_save_csv, arcname=csv_file)
+            myzip.write(path_to_save_csv, arcname=csv_file + ".csv")
 
         os.remove(path_to_save_csv)
 
-@app.task(every('5 minute') | retry(3))
+@app.task(every('15 minute') | retry(3))
 async def run_app():
     logger.info("Iniciando carregamento dos dados...")
     start_time = datetime.datetime.now()
 
-    list_ids_sensors = load_csv_list_sensors()
+    list_ids_sensors = load_csv_list_sensors(PATH_FILE_ID_SENSORS)
     conn = connect_to_postgres()
     data, header = load_data_from_db(conn, "measure", ids_sensors=list_ids_sensors)
     save_list_to_csv_and_zip(data_list=data, header=header)
@@ -213,5 +219,8 @@ def main():
 
 
 if __name__ == '__main__':
+    PATH_FOLDER_OUT = ""
+    PATH_FILE_ID_SENSORS = "./data/sensors.csv"
+
     initial_config('config.ini')
     main()
