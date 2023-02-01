@@ -36,3 +36,35 @@ export EMAIL_PASSWORD="your_email_password"
 ```
 
 Observe que essas variáveis de ambiente só estarão disponíveis no terminal atual. Se você abrir um novo terminal, precisará definir as variáveis de ambiente novamente.
+
+
+### Teste 1
+- 1 Serviço de API
+- 1 Serviço de Banco de dados
+
+```mermaid
+graph LR;
+    A["API (FastAPI) fa:fa-globe"]
+    B[("Banco de Dados (PG) fa:fa-cubes")]
+    A --> B
+```
+
+### Teste 2
+- 1 Serviço de API
+- 1 Serviço de Banco de dados
+- 1 Serviço consumidor de tarefas (RQ)
+- 1 -Serviço de fila d emensagens (Redis)
+
+```mermaid
+graph TD;
+    A["API (FastAPI) fa:fa-globe"]
+    B[("Banco de Dados (PG) fa:fa-cubes")]
+    C>"Fila de mensagens (Redis) fa:fa-bars"]
+    D[["Consumidor de tarefas (RQ) fa:fa-gears"]]
+    
+    A --> B
+    A --> C
+    D --> C
+    D --> B
+    
+```
