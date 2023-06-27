@@ -146,30 +146,53 @@ def _fetchall_to_csv(rows, header, csv_file):
         writer.writerows(rows)
 
 
-def load_data_from_db(conn, table_name, ids_sensors: list) -> tuple:
+def load_data_from_db(conn,
+                      table_name,
+                      ids_sensors: list,
+                      start_date: datetime.date,
+                      end_date: datetime.date,
+                      bucket_interval: str = '2 min') -> tuple:
     if conn and table_name and ids_sensors and isinstance(ids_sensors, list):
         logger.info("Searching for new data (24hours) in the database")
-        list_ids_sensors = ','.join(str(x).replace("SEN_", "") for x in ids_sensors)
+        _sensors = ','.join(str(x).replace("SEN_", "") for x in ids_sensors)
+
+        if isinstance(_sensors, list):
+            _sensors = tuple(_sensors)
+        elif isinstance(_sensors, int):
+            _sensors = f'({_sensors})'
+        elif len(_sensors) == 1:
+            _sensors = f'({_sensors[0]})'
 
         try:
             with conn.cursor() as cursor:
-                query = f"""
+                query = f"""WITH measure_avg AS (
+                            SELECT
+                                pc.id as _point_id,
+                                ei.name as equipment_name,
+                                pc.equipmentinstallation_id as equipmentinstallation_id,
+                                time_bucket('{bucket_interval}'::interval, m.measure_datetime::TIMESTAMP) as bucket,
+                                stats_agg(CASE 
+                                    WHEN m.calculated_measure < 0 THEN 0 
+                                    ELSE m.calculated_measure 
+                                END) as stats
+                            FROM public.measure m
+                            INNER JOIN pointconfig pc ON pc.id = m.pointconfig_id	
+                            INNER JOIN equipmentinstallation ei ON ei.id = pc.equipmentinstallation_id
+
+                            WHERE 
+                            m.measure_datetime BETWEEN '{start_date}' AND '{end_date} 23:59:59'
+                            AND pc.id IN ({_sensors})
+
+                            GROUP BY 1,2,3,4)
+
                         SELECT
-                            'SEN_' || pc.id Name
-                            ,m.measure_datetime Timestamp
-                            ,m.calculated_measure Value
-                        
-                        FROM
-                        public.measure m
-                        
-                        INNER JOIN pointconfig pc ON pc.id = m.pointconfig_id
-                        
-                        WHERE
-                            m.measure_datetime between NOW() - interval '24 hours' and NOW()
-                            AND m.pointconfig_id IN ({list_ids_sensors})
-                            
-                            ORDER BY measure_datetime DESC
+                            'SEN_' || _point_id Name,
+                            bucket Timestamp,
+                            average(rollup(stats)) AS "Value"
+                        FROM measure_avg
+                        GROUP BY 1,2
                         """
+
                 cursor.execute(query)
                 rows = cursor.fetchall()
                 header = [desc[0] for desc in cursor.description]
@@ -183,10 +206,12 @@ def load_data_from_db(conn, table_name, ids_sensors: list) -> tuple:
 
 def save_list_to_csv_and_zip(data_list: list, header: list, _type: str, data_source_name="TELELOG",
                              destination_folder=".\\out",
-                             zip_file=True):
+                             zip_file=True,
+                             to_ftp=True):
     """
     Save a list to .csv file and compress it in a .zip file.
     The .csv file will have a dynamic name with the following format: "DataSourceName_YYYYMMDDHH24MMSS.csv".
+    :param to_ftp:
     :param _type: System Type - Water or Sewage (AGUA, ESGOTO)
     :param data_list: list returned from cursor.fetchall() function "List with tuples"
     :param data_source_name: Name of the data source that will be used as a prefix in the .csv file name
@@ -215,24 +240,24 @@ def save_list_to_csv_and_zip(data_list: list, header: list, _type: str, data_sou
             myzip.write(path_to_save_csv, arcname=csv_file + ".csv")
 
         os.remove(path_to_save_csv)
+    return
+    if to_ftp:
+        # Client FTP
+        ftp_client = ClientFTP(
+            user=os.environ.get('FTP_USER'),
+            password=os.environ.get('FTP_PASSWORD'),
+            host=os.environ.get('FTP_HOST'),
+            port=22,
+            tls_ssl=True
+        )
+        ftp_client.connect()
+        if _type == 'ESGOTO':
+            ftp_client.upload(zip_file_name, path_to_save_zip, dest_path='./upload/esgoto')
+        else:
+            ftp_client.upload(zip_file_name, path_to_save_zip, dest_path='./upload')
+        ftp_client.quit()
 
-    # Client FTP
-    ftp_client = ClientFTP(
-        user=os.environ.get('FTP_USER'),
-        password=os.environ.get('FTP_PASSWORD'),
-        host=os.environ.get('FTP_HOST'),
-        port=22,
-        tls_ssl=True
-    )
-
-    ftp_client.connect()
-    if _type == 'ESGOTO':
-        ftp_client.upload(zip_file_name, path_to_save_zip, dest_path='./upload/esgoto')
-    else:
-        ftp_client.upload(zip_file_name, path_to_save_zip, dest_path='./upload')
-    ftp_client.quit()
-
-    delete_files_in_folder(destination_folder)
+        delete_files_in_folder(destination_folder)
 
 
 def delete_files_in_folder(folder_path: str):
@@ -251,20 +276,24 @@ def delete_files_in_folder(folder_path: str):
         print(f"Erro ao deletar os arquivos em {folder_path}: {e}")
 
 
-@app.task(every('10 minute') | retry(3))
+@app.task(every('100 minute') | retry(3))
 async def run_app():
     logger.info("Iniciando carregamento dos dados...")
     start_time = datetime.datetime.now()
 
     list_ids_agua, list_ids_esgoto = load_csv_list_sensors(PATH_FILE_ID_SENSORS)
     conn = connect_to_postgres()
-    data_agua, header_agua = load_data_from_db(conn, "measure", ids_sensors=list_ids_agua)
-    data_esgoto, header_esgoto = load_data_from_db(conn, "measure", ids_sensors=list_ids_agua)
+
+    _start_date = datetime.date(2022, 1, 1)
+    _end_date = datetime.date(2022, 3, 31)
+
+    data_agua, header_agua = load_data_from_db(conn, "measure", ids_sensors=list_ids_agua, start_date=_start_date, end_date=_end_date)
+    data_esgoto, header_esgoto = load_data_from_db(conn, "measure", ids_sensors=list_ids_agua, start_date=_start_date, end_date=_end_date)
 
     if data_agua:
-        save_list_to_csv_and_zip(data_list=data_agua, header=header_agua, _type='AGUA')
+        save_list_to_csv_and_zip(data_list=data_agua, header=header_agua, _type='AGUA', to_ftp=False)
     if data_esgoto:
-        save_list_to_csv_and_zip(data_list=data_esgoto, header=header_esgoto, _type='ESGOTO')
+        save_list_to_csv_and_zip(data_list=data_esgoto, header=header_esgoto, _type='ESGOTO', to_ftp=False)
 
     end_time = datetime.datetime.now()
 
