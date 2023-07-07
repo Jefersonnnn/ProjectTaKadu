@@ -109,20 +109,19 @@ python main.py -t 10 -f data/meusensores.csv
 ```
 
 
-### Teste 1
-- 1 Serviço de API
-- 1 Serviço de Banco de dados
+### Fluxo
 
 ```mermaid
 graph LR;
     A["TaKaDu Extractor fa:fa-globe"]
-    B[("BD Telelog (PG) fa:fa-cubes")]
-    C>"File. .csv fa:fa-bars"]
-    D["File .zip fa:fa-files"] 
+    B["BD Telelog (PG) fa:fa-cubes"]
+    C["Arquivo .csv (zip) fa:fa-bars"]
+    E["FTP Server"]
     
-    A -- Consulta últimas 24 horas --> B
-    B --> A
-    A -- Salvar dados em um .csv --> C
-    C --> D
-    D -- 15 minutos --> A
+    A -->|Consulta últimas 24 horas| B
+    B -->|Retorno de dados| A
+    A -->|Salvar dados em um .csv e 'zipado'| C
+    C -->|Arquivp .zip enviado para o servidor FTP| E
+    A -->|A cada 10 minutos| A
+
 ```
