@@ -15,15 +15,21 @@
 
 ```text
 [postgresql]
-database = your_database_name
-user = your_user
-password = your_password
-host = your_host
-port = your_port
+database = infralogajoinvillemessage
+host = 192.168.5.11
+port = 5432
 
 [default]
 PATH_FILE_ID_SENSORS = ./data/sensors.csv
 PATH_FOLDER_OUT = ./out
+
+[notify_outlook]
+receivers = jeferson.machado@aguasdejoinville.com.br
+
+[ftp]
+agua_dir = ./upload/
+esgoto_dir = ./upload/esgoto/
+host = 6ksw2yv67az4o.eastus.azurecontainer.io
 ```
 
 <h3>Configurações via variáveis de ambiente (DB)</h3>
@@ -31,27 +37,37 @@ PATH_FOLDER_OUT = ./out
 Abra o Prompt de Comando e execute o seguinte comando:
 Windows cmd:
 ```shell
-setx PG_DATABASE "database_name"
-setx PG_HOST "hostname"
-setx PG_PORT "port"
 setx PG_USER "your_user_db"
 setx PG_PASSWORD "your_password_db"
 ```
 Windows powershell
 ```shell
-$env:PG_DATABASE="database_name"
-$env:PG_HOST="hostname"
-$env:PG_PORT="port"
 $env:PG_USER="your_user_db"
 $env:PG_PASSWORD="your_password_db"
 ```
 Linux e MacOS:
 ```shell
-export PG_DATABASE="database_name"
-export PG_HOST="hostname"
-export PG_PORT="port"
 export PG_USER="your_user_db"
 export PG_PASSWORD="your_password_db"
+```
+
+<h3>Configurações via variáveis de ambiente (FTP)</h3>
+
+Abra o Prompt de Comando e execute o seguinte comando:
+Windows cmd:
+```shell
+setx FTP_USER "your_user_ftp"
+setx FTP_PASSWORD "your_password_ftp"
+```
+Windows powershell
+```shell
+$env:FTP_USER="your_user_ftp"
+$env:FTP_PASSWORD="your_password_ftp"
+```
+Linux e MacOS:
+```shell
+export FTP_USER="your_user_ftp"
+export FTP_PASSWORD="your_password_ftp"
 ```
 
 <p> Para as notificações de erro funcionarem será necessário definir variáveis de ambiente.</p>
@@ -74,6 +90,23 @@ export EMAIL_PASSWORD="your_email_password"
 ```
 
 Observe que essas variáveis de ambiente só estarão disponíveis no terminal atual. Se você abrir um novo terminal, precisará definir as variáveis de ambiente novamente.
+
+
+## Argumentos
+
+O programa aceita os seguintes argumentos de linha de comando:
+
+- `-t, --tempo <valor>`: Define o tempo em minutos para executar o método. O valor padrão é 10 (minutos).
+
+- `-f, --list_sensors <caminho>`: Define o caminho do arquivo de lista de sensores. O valor padrão é "data/sensors.csv".
+
+## Exemplos de Uso
+
+### Exemplo 1: Executar o programa com valores padrão
+
+```bash
+python main.py -t 10 -f data/meusensores.csv
+```
 
 
 ### Teste 1

@@ -69,24 +69,30 @@ def initial_config(config_file_path):
         config.read(config_file_path)
 
         # Postgres Config
-        os.environ['PG_DATABASE'] = os.environ.get('PG_DATABASE', config['postgresql']['database'])
-        os.environ['PG_USER'] = os.environ.get('PG_USER', config['postgresql']['user'])
-        os.environ['PG_PASSWORD'] = os.environ.get('PG_PASSWORD', config['postgresql']['password'])
-        os.environ['PG_HOST'] = os.environ.get('PG_HOST', config['postgresql']['host'])
-        os.environ['PG_PORT'] = os.environ.get('PG_PORT', config['postgresql']['port'])
+        os.environ['PG_DATABASE'] = config['postgresql']['database']
+        os.environ['PG_HOST'] = config['postgresql']['host']
+        os.environ['PG_PORT'] = config['postgresql']['port']
+
+        if not os.environ.get('PG_USER'):
+            raise Exception("Variável de ambiente `PG_USER` não foi definida.")
+        if not os.environ.get('PG_PASSWORD'):
+            raise Exception("Variável de ambiente `PG_PASSWORD` não foi definida.")
 
         # FTP Config
-        os.environ['FTP_HOST'] = os.environ.get('FTP_HOST', config['ftp']['host'])
-        os.environ['FTP_USER'] = os.environ.get('FTP_USER', config['ftp']['username'])
-        os.environ['FTP_PASSWORD'] = os.environ.get('FTP_PASSWORD', config['ftp']['password'])
-        os.environ['FTP_DIR_AGUA'] = os.environ.get('FTP_DIR_AGUA', config['ftp']['agua_dir'])
-        os.environ['FTP_DIR_ESGOTO'] = os.environ.get('FTP_DIR_ESGOTO', config['ftp']['esgoto_dir'])
+        os.environ['FTP_HOST'] = config['ftp']['host']
+        os.environ['FTP_DIR_AGUA'] = config['ftp']['agua_dir']
+        os.environ['FTP_DIR_ESGOTO'] = config['ftp']['esgoto_dir']
+
+        if not os.environ.get('FTP_USER'):
+            raise Exception("Variável de ambiente `FTP_USER` não foi definida.")
+        if not os.environ.get('FTP_PASSWORD'):
+            raise Exception("Variável de ambiente `FTP_PASSWORD` não foi definida.")
 
         PATH_FOLDER_OUT = config['default']['PATH_FOLDER_OUT']
         PATH_FILE_ID_SENSORS = config['default']['PATH_FILE_ID_SENSORS']
 
-        error_notify_email_username = os.environ.get('EMAIL_USERNAME', config['notify_outlook']['username'])
-        error_notify_email_password = os.environ.get('EMAIL_PASSWORD', config['notify_outlook']['password'])
+        error_notify_email_username = os.environ.get('EMAIL_USERNAME')
+        error_notify_email_password = os.environ.get('EMAIL_PASSWORD')
 
         email = EmailSender(
             host="smtp.office365.com",
@@ -153,7 +159,6 @@ def load_data_from_db(conn,
                       end_date: datetime.date,
                       bucket_interval: str = '2 min') -> tuple:
     if conn and table_name and ids_sensors and isinstance(ids_sensors, list):
-        logger.info("Searching for new data (24hours) in the database")
         _sensors = ','.join(str(x).replace("SEN_", "") for x in ids_sensors)
 
         if isinstance(_sensors, list):
@@ -240,7 +245,7 @@ def save_list_to_csv_and_zip(data_list: list, header: list, _type: str, data_sou
             myzip.write(path_to_save_csv, arcname=csv_file + ".csv")
 
         os.remove(path_to_save_csv)
-    return
+
     if to_ftp:
         # Client FTP
         ftp_client = ClientFTP(
@@ -250,12 +255,14 @@ def save_list_to_csv_and_zip(data_list: list, header: list, _type: str, data_sou
             port=22,
             tls_ssl=True
         )
-        ftp_client.connect()
-        if _type == 'ESGOTO':
-            ftp_client.upload(zip_file_name, path_to_save_zip, dest_path='./upload/esgoto')
-        else:
-            ftp_client.upload(zip_file_name, path_to_save_zip, dest_path='./upload')
-        ftp_client.quit()
+        if ftp_client.connect():
+            if _type == 'ESGOTO':
+                dest_path = os.environ.get('FTP_DIR_ESGOTO', './upload/esgoto')
+                ftp_client.upload(zip_file_name, path_to_save_zip, dest_path=dest_path)
+            else:
+                dest_path = os.environ.get('FTP_DIR_AGUA', './upload')
+                ftp_client.upload(zip_file_name, path_to_save_zip, dest_path=dest_path)
+            ftp_client.quit()
 
         delete_files_in_folder(destination_folder)
 
@@ -276,7 +283,8 @@ def delete_files_in_folder(folder_path: str):
         print(f"Erro ao deletar os arquivos em {folder_path}: {e}")
 
 
-@app.task(every('100 minute') | retry(3))
+# @app.task(every(RUN_EVERY_TIME) | retry(3))
+@app.task()
 async def run_app():
     logger.info("Iniciando carregamento dos dados...")
     start_time = datetime.datetime.now()
@@ -284,25 +292,72 @@ async def run_app():
     list_ids_agua, list_ids_esgoto = load_csv_list_sensors(PATH_FILE_ID_SENSORS)
     conn = connect_to_postgres()
 
-    _start_date = datetime.date(2022, 1, 1)
-    _end_date = datetime.date(2022, 3, 31)
+    _end_date = datetime.date.today()
+    _start_date = _end_date - datetime.timedelta(days=1)
 
-    data_agua, header_agua = load_data_from_db(conn, "measure", ids_sensors=list_ids_agua, start_date=_start_date, end_date=_end_date)
-    data_esgoto, header_esgoto = load_data_from_db(conn, "measure", ids_sensors=list_ids_agua, start_date=_start_date, end_date=_end_date)
+    diff_days = (_end_date - _start_date).days
 
-    if data_agua:
-        save_list_to_csv_and_zip(data_list=data_agua, header=header_agua, _type='AGUA', to_ftp=False)
-    if data_esgoto:
-        save_list_to_csv_and_zip(data_list=data_esgoto, header=header_esgoto, _type='ESGOTO', to_ftp=False)
-
+    if diff_days > 30:
+        amount_intervals = diff_days // 30 + 1
+        for i in range(amount_intervals):
+            start_date_interval = _start_date + datetime.timedelta(days=i * 30)
+            end_date_interval = _start_date + datetime.timedelta(days=(i + 1) * 30 - 1)
+            print(f"Consulta do intervalo {i + 1}: {start_date_interval} até {end_date_interval}")
+            download_and_save(conn, list_ids_agua, list_ids_esgoto, start_date_interval, end_date_interval)
+    else:
+        download_and_save(conn, list_ids_agua, list_ids_esgoto, _start_date, _end_date)
     end_time = datetime.datetime.now()
-
     exec_time = round((end_time - start_time).total_seconds(), 2)
     logger.info(f"Tempo para carregar os dados: {exec_time} segundos")
 
 
+def download_and_save(conn, list_ids_agua, list_ids_esgoto, start_date, end_date):
+    data_agua, header_agua = load_data_from_db(conn, "measure", ids_sensors=list_ids_agua,
+                                               start_date=start_date, end_date=end_date)
+    data_esgoto, header_esgoto = load_data_from_db(conn, "measure", ids_sensors=list_ids_esgoto,
+                                                   start_date=start_date, end_date=end_date)
+
+    if data_agua:
+        logger.info("Save file for new data [data_agua]")
+        save_list_to_csv_and_zip(data_list=data_agua, header=header_agua, _type='AGUA', to_ftp=True)
+    if data_esgoto:
+        logger.info("Save file for new data [data_esgoto]")
+        save_list_to_csv_and_zip(data_list=data_esgoto, header=header_esgoto, _type='ESGOTO', to_ftp=True)
+
+
+import argparse
+
+
 def main():
     print("Serviço TaKaDu Load Data iniciado...")
+
+    # Criação do objeto ArgumentParser
+    parser = argparse.ArgumentParser(description='TaKadu load data')
+
+    # Adiciona os argumento de linha de comando
+    parser.add_argument('-t', '--tempo', type=int, default=10, help='Tempo em minutos para executar')
+    parser.add_argument('-ls', '--list_sensors', default='data/sensors.csv',
+                        help='Caminho do arquivo para lista dos sensores (IDs)')
+
+    # Parse dos argumento fornecidos
+    args = parser.parse_args()
+
+    # Acessa os valores do arqgumentos
+    tempo = args.tempo
+    path_sensors = args.list_sensors
+
+    # Imprime os valroes dos argumentos
+    print(f'Será executado a cada {tempo} minutos')
+    print('Arquivo', path_sensors)
+
+    run_time_loop = 'every ' + str(tempo) + ' minutes'
+
+    # Getting a task instance
+    task = app.session[run_app]
+
+    # Setting batch run
+    task.start_cond = run_time_loop
+
     app.run()
 
 
