@@ -1,5 +1,4 @@
 import datetime
-import ftplib
 import os
 
 import zipfile
@@ -14,7 +13,6 @@ import pandas as pd
 from redmail import EmailSender
 
 from rocketry import Rocketry
-from rocketry.conds import retry, every
 
 from client_ftp import ClientFTP
 
@@ -195,6 +193,7 @@ def load_data_from_db(conn,
                             bucket Timestamp,
                             average(rollup(stats)) AS "Value"
                         FROM measure_avg
+                        ORDER BY 1,2
                         GROUP BY 1,2
                         """
 

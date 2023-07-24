@@ -1,9 +1,9 @@
 <div class="markdown prose w-full break-words dark:prose-invert dark">
-<h1>Configuração do Banco de Dados PostgreSQL</h1>
-<p>Este repositório fornece um exemplo de como configurar e se conectar a um banco de dados PostgreSQL.</p>
+<h1>Projeto TaKadu</h1>
+<p>Exemplo de como configurar o script.</p>
 
 <h2>Pré-requisitos</h2>
-<ul><li>Python 3.x</li>
+<ul><li>Python 3.10</li>
 <li>Módulo <code>psycopg2</code> para conexão com o banco de dados PostgreSQL</li>
 <li>Módulo <code>pandas</code> para manipulação de dados</li>
 <li>Módulo <code>rocketry</code></li>
