@@ -192,9 +192,9 @@ def load_data_from_db(conn,
                             'SEN_' || _point_id Name,
                             bucket Timestamp,
                             average(rollup(stats)) AS "Value"
-                        FROM measure_avg
-                        ORDER BY 1,2
+                        FROM measure_avg 
                         GROUP BY 1,2
+                        ORDER BY 2 
                         """
 
                 cursor.execute(query)
