@@ -1,25 +1,24 @@
+import argparse
 import datetime
 import os
-
 import zipfile
 import csv
 import configparser
-from pathlib import Path
-from typing import Any
-
 import psycopg2
 import pandas as pd
+import logging
+
+from pathlib import Path
+from typing import Any
+from logging import Handler
 
 from redmail import EmailSender
-
 from rocketry import Rocketry
-
 from client_ftp import ClientFTP
 
 app = Rocketry(execution='async')
 
 ############# LOGGING
-import logging
 
 logger = logging.getLogger("rocketry.scheduler")
 logger.setLevel(logging.INFO)
@@ -37,7 +36,6 @@ global PATH_FOLDER_OUT
 global PATH_FILE_ID_SENSORS
 #######################
 
-from logging import Handler
 
 
 class EmaillNotifyHandler(Handler):
@@ -61,7 +59,7 @@ class EmaillNotifyHandler(Handler):
         )
 
 
-def initial_config(config_file_path):
+def initial_config(config_file_path) -> bool:
     try:
         config = configparser.ConfigParser()
         config.read(config_file_path)
@@ -108,9 +106,10 @@ def initial_config(config_file_path):
         )
 
         logger.addHandler(erro_handler)
-
+        return True
     except Exception as e:
         logger.error("ERROR IN THE LOADING OF THE ENVIROMENT:", e)
+        return False
 
 
 def connect_to_postgres():
@@ -136,7 +135,7 @@ def connect_to_postgres():
 
 def load_csv_list_sensors(path_file: str, delimiter: str = ";") -> tuple[Any, Any]:
     df_sensors = pd.read_csv(path_file, delimiter=delimiter)
-    if not "Sensor" in df_sensors.columns:
+    if "Sensor" not in df_sensors.columns:
         logger.error(f"'Sensor' column not found in file: {path_file}")
         raise Exception(f"'Sensor' column not found in file: {path_file}")
     return df_sensors.loc[df_sensors["type"] == 'AGUA', "Sensor"].tolist(), \
@@ -324,9 +323,6 @@ def download_and_save(conn, list_ids_agua, list_ids_esgoto, start_date, end_date
         save_list_to_csv_and_zip(data_list=data_esgoto, header=header_esgoto, _type='ESGOTO', to_ftp=True)
 
 
-import argparse
-
-
 def main():
     print("Serviço TaKaDu Load Data iniciado...")
 
@@ -364,5 +360,5 @@ if __name__ == '__main__':
     PATH_FOLDER_OUT = ""
     PATH_FILE_ID_SENSORS = "./data/sensors.csv"
 
-    initial_config('config.ini')
-    main()
+    if initial_config('config.ini'):
+        main()
