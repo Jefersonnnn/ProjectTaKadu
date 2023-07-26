@@ -1,6 +1,8 @@
 import argparse
 import datetime
 import os
+import platform
+import subprocess
 import zipfile
 import csv
 import configparser
@@ -60,6 +62,30 @@ class EmaillNotifyHandler(Handler):
 
 
 def initial_config(config_file_path) -> bool:
+    """
+    Initializes the application configuration by reading the values from the provided configuration file.
+
+    Parameters:
+        config_file_path (str): The path to the configuration file.
+
+    Returns:
+        bool: True if the configuration was successfully loaded, False otherwise.
+
+    Raises:
+        Exception: If any required environment variables (PG_USER, PG_PASSWORD, FTP_USER, FTP_PASSWORD)
+                   or configuration settings are missing in the config file.
+
+    Note:
+        - This function sets various environment variables and configures the logging system for error notification.
+        - It assumes that the configuration file is in the format expected by configparser.ConfigParser.
+
+    Example:
+        Assuming the configuration file is located at "config.ini", you can call the function like this:
+        >>> if initial_config("config.ini"):
+        ...     print("Configuration loaded successfully.")
+        ... else:
+        ...     print("Failed to load configuration.")
+    """
     try:
         config = configparser.ConfigParser()
         config.read(config_file_path)
@@ -108,7 +134,7 @@ def initial_config(config_file_path) -> bool:
         logger.addHandler(erro_handler)
         return True
     except Exception as e:
-        logger.error("ERROR IN THE LOADING OF THE ENVIROMENT:", e)
+        logger.error("ERROR IN THE LOADING OF THE ENVIRONMENT:", e)
         return False
 
 
@@ -207,22 +233,90 @@ def load_data_from_db(conn,
             return False, False
 
 
-def save_list_to_csv_and_zip(data_list: list, header: list, _type: str, data_source_name="TELELOG",
+def upload_to_ftp(file_name:str, path_to_save:str, _type:str):
+    """
+    Uploads a file to an FTP server using the provided ClientFTP instance.
+
+    Parameters:
+        file_name (str): The name of the file to be uploaded.
+        path_to_save (str): The local path of the file to be uploaded.
+        _type (str): Type of file, either 'ESGOTO' or 'AGUA'.
+
+    Returns:
+        None
+
+    Raises:
+        - EnvironmentError: If FTP_USER, FTP_PASSWORD, FTP_HOST, or the respective FTP_DIR_*
+                            environment variables are not set.
+
+    Note:
+        Before calling this function, make sure to set the required environment variables:
+        - FTP_USER: FTP server username.
+        - FTP_PASSWORD: FTP server password.
+        - FTP_HOST: FTP server hostname.
+        - FTP_DIR_ESGOTO: The destination path on the FTP server for ESGOTO type files.
+        - FTP_DIR_AGUA: The destination path on the FTP server for non-ESGOTO type files.
+                        This variable is optional, and if not set, a default path will be used.
+
+    Example:
+        Assuming the required environment variables are set, you can call the function like this:
+        >>> upload_to_ftp('example.zip', '/local/path', 'ESGOTO')
+    """
+    ftp_client = ClientFTP(
+        user=os.environ.get('FTP_USER'),
+        password=os.environ.get('FTP_PASSWORD'),
+        host=os.environ.get('FTP_HOST'),
+        port=22,
+        tls_ssl=True
+    )
+
+    if not ftp_client.connect():
+        raise EnvironmentError("Failed to connect to the FTP server.")
+
+    if _type == 'ESGOTO':
+        dest_path = os.environ.get('FTP_DIR_ESGOTO', './upload/esgoto')
+        ftp_client.upload(file_name, path_to_save, dest_path=dest_path)
+    else:
+        dest_path = os.environ.get('FTP_DIR_AGUA', './upload')
+        ftp_client.upload(file_name, path_to_save, dest_path=dest_path)
+    ftp_client.quit()
+
+
+def save_list_to_csv_and_zip(data_list: list, 
+                             header: list, 
+                             _type: str, 
+                             data_source_name="TELELOG",
                              destination_folder=".\\out",
                              zip_file=True,
                              to_ftp=True):
     """
-    Save a list to .csv file and compress it in a .zip file.
+    Save a list of data to a .csv file, and optionally compress it in a .zip file. 
     The .csv file will have a dynamic name with the following format: "DataSourceName_YYYYMMDDHH24MMSS.csv".
-    :param to_ftp:
-    :param _type: System Type - Water or Sewage (AGUA, ESGOTO)
-    :param data_list: list returned from cursor.fetchall() function "List with tuples"
-    :param data_source_name: Name of the data source that will be used as a prefix in the .csv file name
-    :param destination_folder: Folder where the .zip file will be saved
-    :param zip_file: If it is necessary to "zip" the file
+
+    Parameters:
+        data_list (list): A list containing data in the form of tuples (e.g., returned from cursor.fetchall()).
+        header (list): A list containing the column headers for the data in the same order as the data_list tuples.
+        _type (str): System Type - Water or Sewage (AGUA, ESGOTO).
+        data_source_name (str): Name of the data source that will be used as a prefix in the .csv file name.
+                                 Default is "TELELOG".
+        destination_folder (str): The folder path where the .zip file will be saved. Default is ".\\out".
+        zip_file (bool): If True, compress the .csv file into a .zip file. Default is True.
+        to_ftp (bool): If True, upload the .zip file to an FTP server using the upload_to_ftp function. Default is True.
+
+    Raises:
+        - Exception: If data_list is not a list of tuples.
+        - Exception: If the .csv file is not found for zipping (only if zip_file is True).
+
+    Note:
+        The upload_to_ftp function, if used (to_ftp=True), requires appropriate environment variables to be set
+        for successful FTP connection and file upload.
+
+    Example:
+        Assuming data_list contains the data and header contains the column names, you can call the function like this:
+        >>> save_list_to_csv_and_zip(data_list, header, _type="AGUA", data_source_name="SOME_DATASOURCE")
     """
     if not all(isinstance(i, tuple) for i in data_list):
-        raise Exception("data_list not is a instance of 'list'")
+         raise Exception("data_list is not an instance of 'list' containing tuples.")
 
     if not os.path.exists(destination_folder):
         os.makedirs(destination_folder)
@@ -235,7 +329,7 @@ def save_list_to_csv_and_zip(data_list: list, header: list, _type: str, data_sou
     if zip_file:
         if not os.path.isfile(path_to_save_csv):
             logger.error("save_list_to_csv_and_zip: File .csv not found.")
-            raise Exception("File .csv not found.")
+            raise Exception("save_list_to_csv_and_zip: File .csv not found.")
 
         zip_file_name = f"{_type}-{csv_file}.zip"
         path_to_save_zip = os.path.join(destination_folder, zip_file_name)
@@ -246,29 +340,32 @@ def save_list_to_csv_and_zip(data_list: list, header: list, _type: str, data_sou
 
     if to_ftp:
         # Client FTP
-        ftp_client = ClientFTP(
-            user=os.environ.get('FTP_USER'),
-            password=os.environ.get('FTP_PASSWORD'),
-            host=os.environ.get('FTP_HOST'),
-            port=22,
-            tls_ssl=True
-        )
-        if ftp_client.connect():
-            if _type == 'ESGOTO':
-                dest_path = os.environ.get('FTP_DIR_ESGOTO', './upload/esgoto')
-                ftp_client.upload(zip_file_name, path_to_save_zip, dest_path=dest_path)
-            else:
-                dest_path = os.environ.get('FTP_DIR_AGUA', './upload')
-                ftp_client.upload(zip_file_name, path_to_save_zip, dest_path=dest_path)
-            ftp_client.quit()
-
+        upload_to_ftp(file_name=zip_file_name, 
+                      path_to_save=path_to_save_zip, 
+                      _type=_type)
         delete_files_in_folder(destination_folder)
 
 
 def delete_files_in_folder(folder_path: str):
     """
-    Deleta todos os arquivos de uma pasta
-    :param folder_path: Caminho da pasta.
+    Delete all files in the specified folder.
+
+    Parameters:
+        folder_path (str): The path to the folder containing the files to be deleted.
+
+    Returns:
+        None
+
+    Raises:
+        OSError: If an error occurs while attempting to delete the files.
+
+    Note:
+        - Only files in the folder will be deleted. Subdirectories, if any, will remain untouched.
+        - If the specified folder does not exist or is empty, no files will be deleted.
+
+    Example:
+        Assuming you want to delete all files in the folder "data_files", you can call the function like this:
+        >>> delete_files_in_folder("data_files")
     """
     try:
         file_list = os.listdir(folder_path)
@@ -279,6 +376,56 @@ def delete_files_in_folder(folder_path: str):
         print(f"Todos os arquivos em {folder_path} foram deletados.")
     except OSError as e:
         print(f"Erro ao deletar os arquivos em {folder_path}: {e}")
+
+
+def run_batch_script(file_path: str):
+    """
+    Execute a batch script (.bat) on Windows or a shell script (.sh) on Linux.
+
+    Parameters:
+        file_path (str): The path to the batch (.bat) or shell (.sh) script.
+
+    Returns:
+        None
+
+    Raises:
+        OSError: If the file is not found or cannot be executed.
+        ValueError: If the platform is not recognized (neither Windows nor Linux).
+
+    Example:
+        Assuming you want to execute a script named "myscript.bat" or "myscript.sh",
+        you can call the function like this:
+        >>> run_batch_script("myscript.bat")  # On Windows
+        >>> run_batch_script("myscript.sh")   # On Linux
+    """
+    if not os.path.exists(file_path):
+        raise OSError(f"File not found: {file_path}")
+
+    try:
+        system = platform.system()
+
+        if system == "Windows":
+            subprocess.run(file_path, shell=True)
+        elif system == "Linux":
+            subprocess.run(["bash", file_path])
+        else:
+            raise ValueError("Unsupported platform: Only Windows and Linux are supported.")
+    except OSError as e:
+        raise OSError(f"Error executing the script: {e}")
+
+
+def download_and_save(conn, list_ids_agua, list_ids_esgoto, start_date, end_date):
+    data_agua, header_agua = load_data_from_db(conn, "measure", ids_sensors=list_ids_agua,
+                                               start_date=start_date, end_date=end_date)
+    data_esgoto, header_esgoto = load_data_from_db(conn, "measure", ids_sensors=list_ids_esgoto,
+                                                   start_date=start_date, end_date=end_date)
+
+    if data_agua:
+        logger.info("Save file for new data [data_agua]")
+        save_list_to_csv_and_zip(data_list=data_agua, header=header_agua, _type='AGUA', to_ftp=True)
+    if data_esgoto:
+        logger.info("Save file for new data [data_esgoto]")
+        save_list_to_csv_and_zip(data_list=data_esgoto, header=header_esgoto, _type='ESGOTO', to_ftp=True)
 
 
 # @app.task(every(RUN_EVERY_TIME) | retry(3))
@@ -307,20 +454,6 @@ async def run_app():
     end_time = datetime.datetime.now()
     exec_time = round((end_time - start_time).total_seconds(), 2)
     logger.info(f"Tempo para carregar os dados: {exec_time} segundos")
-
-
-def download_and_save(conn, list_ids_agua, list_ids_esgoto, start_date, end_date):
-    data_agua, header_agua = load_data_from_db(conn, "measure", ids_sensors=list_ids_agua,
-                                               start_date=start_date, end_date=end_date)
-    data_esgoto, header_esgoto = load_data_from_db(conn, "measure", ids_sensors=list_ids_esgoto,
-                                                   start_date=start_date, end_date=end_date)
-
-    if data_agua:
-        logger.info("Save file for new data [data_agua]")
-        save_list_to_csv_and_zip(data_list=data_agua, header=header_agua, _type='AGUA', to_ftp=True)
-    if data_esgoto:
-        logger.info("Save file for new data [data_esgoto]")
-        save_list_to_csv_and_zip(data_list=data_esgoto, header=header_esgoto, _type='ESGOTO', to_ftp=True)
 
 
 def main():
