@@ -105,13 +105,15 @@ def initial_config(config_file_path) -> bool:
         os.environ['FTP_DIR_AGUA'] = config['ftp']['agua_dir']
         os.environ['FTP_DIR_ESGOTO'] = config['ftp']['esgoto_dir']
 
-        if not os.environ.get('FTP_USER'):
-            raise Exception("Variável de ambiente `FTP_USER` não foi definida.")
-        if not os.environ.get('FTP_PASSWORD'):
-            raise Exception("Variável de ambiente `FTP_PASSWORD` não foi definida.")
+        # if not os.environ.get('FTP_USER'):
+        #     raise Exception("Variável de ambiente `FTP_USER` não foi definida.")
+        # if not os.environ.get('FTP_PASSWORD'):
+        #     raise Exception("Variável de ambiente `FTP_PASSWORD` não foi definida.")
 
         PATH_FOLDER_OUT = config['default']['PATH_FOLDER_OUT']
         PATH_FILE_ID_SENSORS = config['default']['PATH_FILE_ID_SENSORS']
+        global BASE_DIR
+        BASE_DIR = Path(__file__).resolve().parent
 
         error_notify_email_username = os.environ.get('EMAIL_USERNAME')
         error_notify_email_password = os.environ.get('EMAIL_PASSWORD')
@@ -339,11 +341,12 @@ def save_list_to_csv_and_zip(data_list: list,
         os.remove(path_to_save_csv)
 
     if to_ftp:
-        # Client FTP
-        upload_to_ftp(file_name=zip_file_name, 
-                      path_to_save=path_to_save_zip, 
-                      _type=_type)
+        run_batch_script()
+        # upload_to_ftp(file_name=zip_file_name, 
+        #               path_to_save=path_to_save_zip, 
+        #               _type=_type)
         delete_files_in_folder(destination_folder)
+
 
 
 def delete_files_in_folder(folder_path: str):
@@ -378,7 +381,7 @@ def delete_files_in_folder(folder_path: str):
         print(f"Erro ao deletar os arquivos em {folder_path}: {e}")
 
 
-def run_batch_script(file_path: str):
+def run_batch_script():
     """
     Execute a batch script (.bat) on Windows or a shell script (.sh) on Linux.
 
@@ -398,16 +401,23 @@ def run_batch_script(file_path: str):
         >>> run_batch_script("myscript.bat")  # On Windows
         >>> run_batch_script("myscript.sh")   # On Linux
     """
-    if not os.path.exists(file_path):
-        raise OSError(f"File not found: {file_path}")
+    system = platform.system()
+
+    folder_path = 'scripts\\uploadWavin'
+    if system == "Windows":
+        sufix_file = ".bat"
+    elif system == "Linux":
+        sufix_file = ".sh"
+    full_file_path = os.path.join(BASE_DIR, folder_path + sufix_file)
+    
+    if not os.path.exists(full_file_path):
+        raise OSError(f"File not found: {full_file_path}")
 
     try:
-        system = platform.system()
-
         if system == "Windows":
-            subprocess.run(file_path, shell=True)
+            subprocess.run(full_file_path, shell=True)
         elif system == "Linux":
-            subprocess.run(["bash", file_path])
+            subprocess.run(["bash", full_file_path])
         else:
             raise ValueError("Unsupported platform: Only Windows and Linux are supported.")
     except OSError as e:
@@ -436,17 +446,18 @@ async def run_app():
 
     list_ids_agua, list_ids_esgoto = load_csv_list_sensors(PATH_FILE_ID_SENSORS)
     conn = connect_to_postgres()
-
-    _end_date = datetime.date.today()
-    _start_date = _end_date - datetime.timedelta(days=1)
+    
+    _end_date = datetime.date(2023,6,28) #datetime.date.today()
+    _start_date = datetime.date(2023,5,25) #_end_date - datetime.timedelta(days=1)
 
     diff_days = (_end_date - _start_date).days
 
-    if diff_days > 30:
-        amount_intervals = diff_days // 30 + 1
+    _max_days_per_file = 45
+    if diff_days > _max_days_per_file:
+        amount_intervals = diff_days // _max_days_per_file + 1
         for i in range(amount_intervals):
-            start_date_interval = _start_date + datetime.timedelta(days=i * 30)
-            end_date_interval = _start_date + datetime.timedelta(days=(i + 1) * 30 - 1)
+            start_date_interval = _start_date + datetime.timedelta(days=i * _max_days_per_file)
+            end_date_interval = _start_date + datetime.timedelta(days=(i + 1) * _max_days_per_file - 1)
             print(f"Consulta do intervalo {i + 1}: {start_date_interval} até {end_date_interval}")
             download_and_save(conn, list_ids_agua, list_ids_esgoto, start_date_interval, end_date_interval)
     else:
