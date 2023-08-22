@@ -114,6 +114,9 @@ def initial_config(config_file_path) -> bool:
 
         PATH_FOLDER_OUT = config['default']['PATH_FOLDER_OUT']
         PATH_FILE_ID_SENSORS = config['default']['PATH_FILE_ID_SENSORS']
+
+        global URL_FILE_ID_SENSORS
+        URL_FILE_ID_SENSORS = config['default']['URL_FILE_ID_SENSORS']
         global BASE_DIR
         BASE_DIR = Path(__file__).resolve().parent
 
@@ -164,7 +167,9 @@ def connect_to_postgres():
 
 
 def load_csv_list_sensors(path_file: str, delimiter: str = ";") -> tuple[Any, Any]:
-    df_sensors = pd.read_csv(path_file, delimiter=delimiter)
+    df_sensors = pd.read_csv(URL_FILE_ID_SENSORS, delimiter=delimiter)
+    if df_sensors.empty:
+        df_sensors = pd.read_csv(path_file, delimiter=delimiter)    
     if "Sensor" not in df_sensors.columns:
         logger.error(f"'Sensor' column not found in file: {path_file}")
         raise Exception(f"'Sensor' column not found in file: {path_file}")
