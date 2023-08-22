@@ -12,7 +12,7 @@ fi
 
 # Loop para enviar arquivos .csv e .zip para o bucket e mover para a pasta UPLOAD_DONE
 for file in "$UPLOAD_DIR"/*.csv "$UPLOAD_DIR"/*.zip; do
-    # gsutil cp "$file" "gs://$BUCKET_NAME/"
+    gsutil cp "$file" "gs://$BUCKET_NAME/"
     # mv "$file" "$UPLOAD_DONE"
 done
 

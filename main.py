@@ -3,6 +3,7 @@ import datetime
 import os
 import platform
 import subprocess
+from tracemalloc import start
 import zipfile
 import csv
 import configparser
@@ -16,6 +17,7 @@ from logging import Handler
 
 from redmail import EmailSender
 from rocketry import Rocketry
+from rocketry.args import Arg
 from client_ftp import ClientFTP
 
 app = Rocketry(execution='async')
@@ -180,8 +182,8 @@ def _fetchall_to_csv(rows, header, csv_file):
 def load_data_from_db(conn,
                       table_name,
                       ids_sensors: list,
-                      start_date: datetime.date,
-                      end_date: datetime.date,
+                      start_date: datetime.datetime,
+                      end_date: datetime.datetime,
                       bucket_interval: str = '2 min') -> tuple:
     if conn and table_name and ids_sensors and isinstance(ids_sensors, list):
         _sensors = ','.join(str(x).replace("SEN_", "") for x in ids_sensors)
@@ -192,6 +194,12 @@ def load_data_from_db(conn,
             _sensors = f'({_sensors})'
         elif len(_sensors) == 1:
             _sensors = f'({_sensors[0]})'
+
+        if isinstance(start_date, datetime.datetime):
+            start_date = start_date.strftime("%Y-%m-%d %H:%M:%S")
+
+        if isinstance(start_date, datetime.datetime):
+            end_date = end_date.strftime("%Y-%m-%d %H:%M:%S")
 
         try:
             with conn.cursor() as cursor:
@@ -210,7 +218,7 @@ def load_data_from_db(conn,
                             INNER JOIN equipmentinstallation ei ON ei.id = pc.equipmentinstallation_id
 
                             WHERE 
-                            m.measure_datetime BETWEEN '{start_date}' AND '{end_date} 23:59:59'
+                            m.measure_datetime BETWEEN '{start_date}' AND '{end_date}'
                             AND pc.id IN ({_sensors})
 
                             GROUP BY 1,2,3,4)
@@ -440,19 +448,19 @@ def download_and_save(conn, list_ids_agua, list_ids_esgoto, start_date, end_date
 
 # @app.task(every(RUN_EVERY_TIME) | retry(3))
 @app.task()
-async def run_app():
+async def run_app(date_range_in_hours=Arg('date_range_in_hours')):
     logger.info("Iniciando carregamento dos dados...")
     start_time = datetime.datetime.now()
 
     list_ids_agua, list_ids_esgoto = load_csv_list_sensors(PATH_FILE_ID_SENSORS)
     conn = connect_to_postgres()
     
-    _end_date = datetime.date(2023,6,28) #datetime.date.today()
-    _start_date = datetime.date(2023,5,25) #_end_date - datetime.timedelta(days=1)
+    _end_date = datetime.datetime.now()
+    _start_date = _end_date - datetime.timedelta(hours=date_range_in_hours)
 
     diff_days = (_end_date - _start_date).days
 
-    _max_days_per_file = 45
+    _max_days_per_file = 30
     if diff_days > _max_days_per_file:
         amount_intervals = diff_days // _max_days_per_file + 1
         for i in range(amount_intervals):
@@ -475,6 +483,7 @@ def main():
 
     # Adiciona os argumento de linha de comando
     parser.add_argument('-t', '--tempo', type=int, default=10, help='Tempo em minutos para executar')
+    parser.add_argument('-dr', '--date_range', type=int, default=6, help='Tempo em horas do intervalo de dados do banco.' )
     parser.add_argument('-ls', '--list_sensors', default='data/sensors.csv',
                         help='Caminho do arquivo para lista dos sensores (IDs)')
 
@@ -483,10 +492,12 @@ def main():
 
     # Acessa os valores do arqgumentos
     tempo = args.tempo
+    date_range = args.date_range
     path_sensors = args.list_sensors
 
     # Imprime os valroes dos argumentos
     print(f'Será executado a cada {tempo} minutos')
+    print(f'Para cada envio teremos um histórico de {date_range} minutos')
     print('Arquivo', path_sensors)
 
     run_time_loop = 'every ' + str(tempo) + ' minutes'
@@ -496,6 +507,9 @@ def main():
 
     # Setting batch run
     task.start_cond = run_time_loop
+
+
+    app.params(date_range_in_hours=date_range)
 
     app.run()
 

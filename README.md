@@ -105,7 +105,7 @@ O programa aceita os seguintes argumentos de linha de comando:
 ### Exemplo 1: Executar o programa com valores padrão
 
 ```bash
-python main.py -t 10 -f data/meusensores.csv
+python main.py -t 10 -dr 6 -f data/meusensores.csv
 ```
 
 
