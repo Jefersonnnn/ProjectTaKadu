@@ -98,6 +98,8 @@ O programa aceita os seguintes argumentos de linha de comando:
 
 - `-t, --tempo <valor>`: Define o tempo em minutos para executar o método. O valor padrão é 10 (minutos).
 
+- `-dr, --tempo <valor>`: Define o tempo em minutos para executar o método. O valor padrão é 10 (minutos).
+
 - `-f, --list_sensors <caminho>`: Define o caminho do arquivo de lista de sensores. O valor padrão é "data/sensors.csv".
 
 ## Exemplos de Uso
@@ -105,7 +107,7 @@ O programa aceita os seguintes argumentos de linha de comando:
 ### Exemplo 1: Executar o programa com valores padrão
 
 ```bash
-python main.py -t 10 -dr 6 -f data/meusensores.csv
+python main.py -t 30 -dr 2 -f data/meusensores.csv
 ```
 
 

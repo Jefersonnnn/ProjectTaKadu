@@ -487,8 +487,8 @@ def main():
     parser = argparse.ArgumentParser(description='TaKadu load data')
 
     # Adiciona os argumento de linha de comando
-    parser.add_argument('-t', '--tempo', type=int, default=10, help='Tempo em minutos para executar')
-    parser.add_argument('-dr', '--date_range', type=int, default=6, help='Tempo em horas do intervalo de dados do banco.' )
+    parser.add_argument('-t', '--tempo', type=int, default=30, help='Tempo em minutos para executar')
+    parser.add_argument('-dr', '--date_range', type=int, default=2, help='Tempo em horas do intervalo de dados do banco.' )
     parser.add_argument('-ls', '--list_sensors', default='data/sensors.csv',
                         help='Caminho do arquivo para lista dos sensores (IDs)')
 
@@ -502,7 +502,7 @@ def main():
 
     # Imprime os valroes dos argumentos
     print(f'Será executado a cada {tempo} minutos')
-    print(f'Para cada envio teremos um histórico de {date_range} minutos')
+    print(f'Para cada envio teremos um histórico de {date_range} horas')
     print('Arquivo', path_sensors)
 
     run_time_loop = 'every ' + str(tempo) + ' minutes'
