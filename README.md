@@ -110,6 +110,18 @@ O programa aceita os seguintes argumentos de linha de comando:
 python main.py -t 30 -dr 2 -f data/meusensores.csv
 ```
 
+### Exemplo 2: Executar no Linux usando crontab
+
+Abra o arquivo crontab para edição:
+```bash
+crontab -e
+```
+
+adicone uma linha para definir as variáveis de ambiente ante de chamar o script
+```bash
+@reboot PG_USER=seu_usuario PG_PASSWORD=sua_senha /caminho/para/seu/script.py -t 30 -dr 2
+```
+
 
 ### Fluxo
 
