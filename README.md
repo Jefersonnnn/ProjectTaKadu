@@ -122,6 +122,11 @@ adicone uma linha para definir as variáveis de ambiente ante de chamar o script
 @reboot PG_USER=seu_usuario PG_PASSWORD=sua_senha /caminho/para/seu/script.py -t 30 -dr 2
 ```
 
+## Configurar GSUTIL (Google)
+
+Necessário instalar o gsutil para executar comandos no prompt. Com a conta do Gmail autorizada para enviar os arquivos.
+
+
 
 ### Fluxo
 

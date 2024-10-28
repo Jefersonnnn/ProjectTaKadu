@@ -440,12 +440,13 @@ def run_batch_script():
 def download_and_save(conn, list_ids_agua, list_ids_esgoto, start_date, end_date):
     data_agua, header_agua = load_data_from_db(conn, "measure", ids_sensors=list_ids_agua,
                                                start_date=start_date, end_date=end_date)
-    data_esgoto, header_esgoto = load_data_from_db(conn, "measure", ids_sensors=list_ids_esgoto,
-                                                   start_date=start_date, end_date=end_date)
-
     if data_agua:
         logger.info("Save file for new data [data_agua]")
         save_list_to_csv_and_zip(data_list=data_agua, header=header_agua, _type='AGUA', to_ftp=True)
+    
+    data_esgoto, header_esgoto = load_data_from_db(conn, "measure", ids_sensors=list_ids_esgoto,
+                                                   start_date=start_date, end_date=end_date)
+
     if data_esgoto:
         logger.info("Save file for new data [data_esgoto]")
         save_list_to_csv_and_zip(data_list=data_esgoto, header=header_esgoto, _type='ESGOTO', to_ftp=True)
@@ -455,13 +456,16 @@ def download_and_save(conn, list_ids_agua, list_ids_esgoto, start_date, end_date
 @app.task()
 async def run_app(date_range_in_hours=Arg('date_range_in_hours')):
     logger.info("Iniciando carregamento dos dados...")
+
     start_time = datetime.datetime.now()
 
     list_ids_agua, list_ids_esgoto = load_csv_list_sensors(PATH_FILE_ID_SENSORS)
     conn = connect_to_postgres()
     
     _end_date = datetime.datetime.now()
+    # _end_date = datetime.datetime.strptime('09/10/24 00:00:00', '%d/%m/%y %H:%M:%S')
     _start_date = _end_date - datetime.timedelta(hours=date_range_in_hours)
+    # _start_date = datetime.datetime.strptime('02/10/24 00:00:00', '%d/%m/%y %H:%M:%S')
 
     diff_days = (_end_date - _start_date).days
 
