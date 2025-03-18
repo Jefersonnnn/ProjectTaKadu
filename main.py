@@ -18,7 +18,6 @@ from logging import Handler
 from redmail import EmailSender
 from rocketry import Rocketry
 from rocketry.args import Arg
-from client_ftp import ClientFTP
 
 app = Rocketry(execution='async')
 
@@ -103,14 +102,9 @@ def initial_config(config_file_path) -> bool:
             raise Exception("Variável de ambiente `PG_PASSWORD` não foi definida.")
 
         # FTP Config
-        os.environ['FTP_HOST'] = config['ftp']['host']
-        os.environ['FTP_DIR_AGUA'] = config['ftp']['agua_dir']
-        os.environ['FTP_DIR_ESGOTO'] = config['ftp']['esgoto_dir']
+        os.environ['FTP_DIR_AGUA'] = config['google_cloud']['agua_dir']
+        os.environ['FTP_DIR_ESGOTO'] = config['google_cloud']['esgoto_dir']
 
-        # if not os.environ.get('FTP_USER'):
-        #     raise Exception("Variável de ambiente `FTP_USER` não foi definida.")
-        # if not os.environ.get('FTP_PASSWORD'):
-        #     raise Exception("Variável de ambiente `FTP_PASSWORD` não foi definida.")
 
         PATH_FOLDER_OUT = config['default']['PATH_FOLDER_OUT']
         PATH_FILE_ID_SENSORS = config['default']['PATH_FILE_ID_SENSORS']
@@ -248,55 +242,6 @@ def load_data_from_db(conn,
             return False, False
 
 
-def upload_to_ftp(file_name:str, path_to_save:str, _type:str):
-    """
-    Uploads a file to an FTP server using the provided ClientFTP instance.
-
-    Parameters:
-        file_name (str): The name of the file to be uploaded.
-        path_to_save (str): The local path of the file to be uploaded.
-        _type (str): Type of file, either 'ESGOTO' or 'AGUA'.
-
-    Returns:
-        None
-
-    Raises:
-        - EnvironmentError: If FTP_USER, FTP_PASSWORD, FTP_HOST, or the respective FTP_DIR_*
-                            environment variables are not set.
-
-    Note:
-        Before calling this function, make sure to set the required environment variables:
-        - FTP_USER: FTP server username.
-        - FTP_PASSWORD: FTP server password.
-        - FTP_HOST: FTP server hostname.
-        - FTP_DIR_ESGOTO: The destination path on the FTP server for ESGOTO type files.
-        - FTP_DIR_AGUA: The destination path on the FTP server for non-ESGOTO type files.
-                        This variable is optional, and if not set, a default path will be used.
-
-    Example:
-        Assuming the required environment variables are set, you can call the function like this:
-        >>> upload_to_ftp('example.zip', '/local/path', 'ESGOTO')
-    """
-    ftp_client = ClientFTP(
-        user=os.environ.get('FTP_USER'),
-        password=os.environ.get('FTP_PASSWORD'),
-        host=os.environ.get('FTP_HOST'),
-        port=22,
-        tls_ssl=True
-    )
-
-    if not ftp_client.connect():
-        raise EnvironmentError("Failed to connect to the FTP server.")
-
-    if _type == 'ESGOTO':
-        dest_path = os.environ.get('FTP_DIR_ESGOTO', './upload/esgoto')
-        ftp_client.upload(file_name, path_to_save, dest_path=dest_path)
-    else:
-        dest_path = os.environ.get('FTP_DIR_AGUA', './upload')
-        ftp_client.upload(file_name, path_to_save, dest_path=dest_path)
-    ftp_client.quit()
-
-
 def save_list_to_csv_and_zip(data_list: list, 
                              header: list, 
                              _type: str, 
@@ -354,12 +299,9 @@ def save_list_to_csv_and_zip(data_list: list,
         os.remove(path_to_save_csv)
 
     if to_ftp:
-        run_batch_script()
-        # upload_to_ftp(file_name=zip_file_name, 
-        #               path_to_save=path_to_save_zip, 
-        #               _type=_type)
-        delete_files_in_folder(destination_folder)
-
+        ...
+        # run_batch_script()
+        # delete_files_in_folder(destination_folder)
 
 
 def delete_files_in_folder(folder_path: str):
@@ -461,11 +403,12 @@ async def run_app(date_range_in_hours=Arg('date_range_in_hours')):
 
     list_ids_agua, list_ids_esgoto = load_csv_list_sensors(PATH_FILE_ID_SENSORS)
     conn = connect_to_postgres()
-    
-    _end_date = datetime.datetime.now()
-    # _end_date = datetime.datetime.strptime('09/10/24 00:00:00', '%d/%m/%y %H:%M:%S')
+
     _start_date = _end_date - datetime.timedelta(hours=date_range_in_hours)
-    # _start_date = datetime.datetime.strptime('02/10/24 00:00:00', '%d/%m/%y %H:%M:%S')
+    # _start_date = datetime.datetime.strptime('25/10/24 00:00:00', '%d/%m/%y %H:%M:%S')
+    _end_date = datetime.datetime.now()
+    # _end_date = datetime.datetime.strptime('9/11/24 00:00:00', '%d/%m/%y %H:%M:%S')
+
 
     diff_days = (_end_date - _start_date).days
 

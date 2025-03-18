@@ -1,19 +1,50 @@
-<div class="markdown prose w-full break-words dark:prose-invert dark">
-<h1>Projeto TaKadu</h1>
-<p>Exemplo de como configurar o script.</p>
+# Projeto TaKadu
 
-<h2>Pré-requisitos</h2>
-<ul><li>Python 3.10</li>
-<li>Módulo <code>psycopg2</code> para conexão com o banco de dados PostgreSQL</li>
-<li>Módulo <code>pandas</code> para manipulação de dados</li>
-<li>Módulo <code>rocketry</code></li>
-<li>Módulo <code>redmail</code></li>
-<li>Arquivo de configuração <code>database.ini</code> contendo as informações de conexão</li></ul>
+Sistema de coleta e envio de dados de telemetria para análise no ambiente TaKadu.
 
-<h2>Configuração do Arquivo config.ini</h2>
-<p>Crie um arquivo <code>config.ini</code> na raiz do seu projeto com as seguintes informações de conexão:</p>
+## Índice
+1. [Pré-requisitos](#pré-requisitos)
+2. [Instalação](#instalação)
+3. [Configuração](#configuração)
+4. [Execução](#execução)
+5. [Documentação Técnica](#documentação-técnica)
 
-```text
+## Pré-requisitos
+
+- Python 3.10 ou superior
+- Módulos Python:
+  - psycopg2 (conexão PostgreSQL)
+  - pandas (manipulação de dados)
+  - rocketry (agendamento)
+  - redmail (notificações)
+- Conta Google Cloud com acesso ao Storage
+- Acesso ao banco de dados Telelog
+
+## Instalação
+
+1. Clone o repositório:
+```bash
+git clone [URL_DO_REPOSITÓRIO]
+cd TaKadu
+```
+
+2. Instale as dependências:
+```bash
+pip install -r requirements.txt
+```
+
+3. Crie as pastas necessárias:
+```bash
+mkdir -p data out/uploaded
+```
+
+## Configuração
+
+### 1. Arquivo config.ini
+
+Crie um arquivo `config.ini` na raiz do projeto:
+
+```ini
 [postgresql]
 database = infralogajoinvillemessage
 host = 192.168.5.11
@@ -24,123 +55,101 @@ PATH_FILE_ID_SENSORS = ./data/sensors.csv
 PATH_FOLDER_OUT = ./out
 
 [notify_outlook]
-receivers = jeferson.machado@aguasdejoinville.com.br
+receivers = seu.email@exemplo.com
 
-[ftp]
+[google_cloud]
 agua_dir = ./upload/
 esgoto_dir = ./upload/esgoto/
-host = 6ksw2yv67az4o.eastus.azurecontainer.io
 ```
 
-<h3>Configurações via variáveis de ambiente (DB)</h3>
+### 2. Variáveis de Ambiente
 
-Abra o Prompt de Comando e execute o seguinte comando:
-Windows cmd:
-```shell
-setx PG_USER "your_user_db"
-setx PG_PASSWORD "your_password_db"
-```
-Windows powershell
-```shell
-$env:PG_USER="your_user_db"
-$env:PG_PASSWORD="your_password_db"
-```
-Linux e MacOS:
-```shell
-export PG_USER="your_user_db"
-export PG_PASSWORD="your_password_db"
+Configure as variáveis de ambiente necessárias:
+
+#### Windows (CMD)
+```cmd
+setx PG_USER "seu_usuario_db"
+setx PG_PASSWORD "sua_senha_db"
+setx EMAIL_USERNAME "seu_email"
+setx EMAIL_PASSWORD "sua_senha_email"
 ```
 
-<h3>Configurações via variáveis de ambiente (FTP)</h3>
-
-Abra o Prompt de Comando e execute o seguinte comando:
-Windows cmd:
-```shell
-setx FTP_USER "your_user_ftp"
-setx FTP_PASSWORD "your_password_ftp"
-```
-Windows powershell
-```shell
-$env:FTP_USER="your_user_ftp"
-$env:FTP_PASSWORD="your_password_ftp"
-```
-Linux e MacOS:
-```shell
-export FTP_USER="your_user_ftp"
-export FTP_PASSWORD="your_password_ftp"
+#### Windows (PowerShell)
+```powershell
+$env:PG_USER="seu_usuario_db"
+$env:PG_PASSWORD="sua_senha_db"
+$env:EMAIL_USERNAME="seu_email"
+$env:EMAIL_PASSWORD="sua_senha_email"
 ```
 
-<p> Para as notificações de erro funcionarem será necessário definir variáveis de ambiente.</p>
-
-Abra o Prompt de Comando e execute o seguinte comando:
-Windows cmd:
-```shell
-setx EMAIL_USERNAME "your_email_username"
-setx EMAIL_PASSWORD "your_email_password"
-```
-Windows powershell
-```shell
-$env:EMAIL_USERNAME "your_email_username"
-$env:EMAIL_PASSWORD "your_email_password"
-```
-Linux e MacOS:
-```shell
-export EMAIL_USERNAME="your_email_username"
-export EMAIL_PASSWORD="your_email_password"
+#### Linux/Mac
+```bash
+export PG_USER="seu_usuario_db"
+export PG_PASSWORD="sua_senha_db"
+export EMAIL_USERNAME="seu_email"
+export EMAIL_PASSWORD="sua_senha_email"
 ```
 
-Observe que essas variáveis de ambiente só estarão disponíveis no terminal atual. Se você abrir um novo terminal, precisará definir as variáveis de ambiente novamente.
+### 3. Lista de Sensores
 
+Crie ou atualize o arquivo `data/sensors.csv` com a lista de sensores:
 
-## Argumentos
+```csv
+type;Subnet;Sensor
+AGUA;SUB_333;SEN_12345
+ESGOTO;SUB_433;SEN_67890
+```
 
-O programa aceita os seguintes argumentos de linha de comando:
+## Execução
 
-- `-t, --tempo <valor>`: Define o tempo em minutos para executar o método. O valor padrão é 10 (minutos).
-
-- `-dr, --tempo <valor>`: Define o tempo em minutos para executar o método. O valor padrão é 10 (minutos).
-
-- `-f, --list_sensors <caminho>`: Define o caminho do arquivo de lista de sensores. O valor padrão é "data/sensors.csv".
-
-## Exemplos de Uso
-
-### Exemplo 1: Executar o programa com valores padrão
+### 1. Execução Automática
 
 ```bash
-python main.py -t 30 -dr 2 -f data/meusensores.csv
+python main.py -t 30 -dr 2 -ls data/sensors.csv
 ```
 
-### Exemplo 2: Executar no Linux usando crontab
+Parâmetros:
+- `-t, --tempo`: Intervalo de execução em minutos (padrão: 30)
+- `-dr, --date_range`: Intervalo de tempo em horas para coleta (padrão: 2)
+- `-ls, --list_sensors`: Caminho do arquivo de sensores (padrão: data/sensors.csv)
 
-Abra o arquivo crontab para edição:
+### 2. Execução Manual
+Para executar o script manualmente e processar dados de um período específico, você precisa modificar diretamente as datas no método run_app.
+
+Localize estas linhas no código:
+```
+_start_date = datetime.datetime.strptime('25/10/24 00:00:00', '%d/%m/%y %H:%M:%S')
+_end_date = datetime.datetime.strptime('9/11/24 00:00:00', '%d/%m/%y %H:%M:%S')
+```
+
+Modifique as datas conforme necessário e execute o script diretamente:
 ```bash
-crontab -e
+python main.py
 ```
 
-adicone uma linha para definir as variáveis de ambiente ante de chamar o script
-```bash
-@reboot PG_USER=seu_usuario PG_PASSWORD=sua_senha /caminho/para/seu/script.py -t 30 -dr 2
-```
+## Documentação Técnica
 
-## Configurar GSUTIL (Google)
+Para detalhes técnicos sobre:
+- Adição de novos sensores
+- Configuração do GSUTIL
+- Funcionamento do script de envio
+- Fluxo de dados
+- Tratamento de erros
 
-Necessário instalar o gsutil para executar comandos no prompt. Com a conta do Gmail autorizada para enviar os arquivos.
+Consulte o arquivo [TECHNICAL_DETAILS.md](TECHNICAL_DETAILS.md)
 
-
-
-### Fluxo
+## Fluxo do Sistema
 
 ```mermaid
 graph LR;
-    A["TaKaDu Extractor fa:fa-globe"]
-    B["BD Telelog (PG) fa:fa-cubes"]
-    C["Arquivo .csv (zip) fa:fa-bars"]
+    A["TaKaDu Extractor"]
+    B["BD Telelog (PG)"]
+    C["Arquivo .csv (zip)"]
     E["FTP Server"]
     
-    A -->|Consulta últimas 24 horas| B
-    B -->|Retorno de dados| A
-    A -->|Salvar dados em um .csv e 'zipado'| C
-    C -->|Arquivp .zip enviado para o servidor FTP| E
-    A -->|A cada 10 minutos| A
-
+    A -->|Consulta dados| B
+    B -->|Retorno| A
+    A -->|Salva dados| C
+    C -->|Envia para FTP| E
+    A -->|Execução periódica| A
 ```
