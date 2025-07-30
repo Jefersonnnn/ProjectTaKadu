@@ -33,6 +33,12 @@ cd TaKadu
 pip install -r requirements.txt
 ```
 
+2. Instale as dependências (Poetry):
+```bash
+poetry install
+```
+
+
 3. Crie as pastas necessárias:
 ```bash
 mkdir -p data out/uploaded
@@ -107,6 +113,10 @@ ESGOTO;SUB_433;SEN_67890
 ```bash
 python main.py -t 30 -dr 2 -ls data/sensors.csv
 ```
+ou
+```bash
+poetry run python main.py -t 30 -dr 2 -ls data/sensors.csv
+```
 
 Parâmetros:
 - `-t, --tempo`: Intervalo de execução em minutos (padrão: 30)
@@ -145,11 +155,11 @@ graph LR;
     A["TaKaDu Extractor"]
     B["BD Telelog (PG)"]
     C["Arquivo .csv (zip)"]
-    E["FTP Server"]
+    E["Buckets do Cloud Storage"]
     
     A -->|Consulta dados| B
     B -->|Retorno| A
     A -->|Salva dados| C
-    C -->|Envia para FTP| E
+    C -->|Envia para Bucket Google| E
     A -->|Execução periódica| A
 ```
