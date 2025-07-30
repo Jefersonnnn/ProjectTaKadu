@@ -136,7 +136,7 @@ Para detalhes técnicos sobre:
 - Fluxo de dados
 - Tratamento de erros
 
-Consulte o arquivo [TECHNICAL_DETAILS.md](TECHNICAL_DETAILS.md)
+Consulte o arquivo [TECHNICAL_DETAILS.md](docs/TECHNICAL_DETAILS.md)
 
 ## Fluxo do Sistema
 
