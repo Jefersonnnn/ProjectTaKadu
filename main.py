@@ -300,8 +300,8 @@ def save_list_to_csv_and_zip(data_list: list,
 
     if to_ftp:
         ...
-        # run_batch_script()
-        # delete_files_in_folder(destination_folder)
+        run_batch_script()
+        delete_files_in_folder(destination_folder)
 
 
 def delete_files_in_folder(folder_path: str):
@@ -404,11 +404,10 @@ async def run_app(date_range_in_hours=Arg('date_range_in_hours')):
     list_ids_agua, list_ids_esgoto = load_csv_list_sensors(PATH_FILE_ID_SENSORS)
     conn = connect_to_postgres()
 
+    _end_date = datetime.datetime.now()
     _start_date = _end_date - datetime.timedelta(hours=date_range_in_hours)
     # _start_date = datetime.datetime.strptime('25/10/24 00:00:00', '%d/%m/%y %H:%M:%S')
-    _end_date = datetime.datetime.now()
     # _end_date = datetime.datetime.strptime('9/11/24 00:00:00', '%d/%m/%y %H:%M:%S')
-
 
     diff_days = (_end_date - _start_date).days
 
