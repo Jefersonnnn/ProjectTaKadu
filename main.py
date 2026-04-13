@@ -446,7 +446,7 @@ def main():
     date_range = args.date_range
     path_sensors = args.list_sensors
 
-    # Imprime os valroes dos argumentos
+    # Imprime os valores dos argumentos
     print(f'Será executado a cada {tempo} minutos')
     print(f'Para cada envio teremos um histórico de {date_range} horas')
     print('Arquivo', path_sensors)
