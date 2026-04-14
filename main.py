@@ -248,7 +248,7 @@ def save_list_to_csv_and_zip(data_list: list,
                              data_source_name="TELELOG",
                              destination_folder=".\\out",
                              zip_file=True,
-                             to_ftp=True):
+                             run_script=False):
     """
     Save a list of data to a .csv file, and optionally compress it in a .zip file. 
     The .csv file will have a dynamic name with the following format: "DataSourceName_YYYYMMDDHH24MMSS.csv".
@@ -298,8 +298,7 @@ def save_list_to_csv_and_zip(data_list: list,
 
         os.remove(path_to_save_csv)
 
-    if to_ftp:
-        ...
+    if run_script:
         run_batch_script()
         delete_files_in_folder(destination_folder)
 
@@ -384,14 +383,14 @@ def download_and_save(conn, list_ids_agua, list_ids_esgoto, start_date, end_date
                                                start_date=start_date, end_date=end_date)
     if data_agua:
         logger.info("Save file for new data [data_agua]")
-        save_list_to_csv_and_zip(data_list=data_agua, header=header_agua, _type='AGUA', to_ftp=True)
+        save_list_to_csv_and_zip(data_list=data_agua, header=header_agua, _type='AGUA', run_script=True)
     
     data_esgoto, header_esgoto = load_data_from_db(conn, "measure", ids_sensors=list_ids_esgoto,
                                                    start_date=start_date, end_date=end_date)
 
     if data_esgoto:
         logger.info("Save file for new data [data_esgoto]")
-        save_list_to_csv_and_zip(data_list=data_esgoto, header=header_esgoto, _type='ESGOTO', to_ftp=True)
+        save_list_to_csv_and_zip(data_list=data_esgoto, header=header_esgoto, _type='ESGOTO', run_script=True)
 
 
 # @app.task(every(RUN_EVERY_TIME) | retry(3))
