@@ -135,8 +135,8 @@ def load_data_from_db(conn, ref_date) -> tuple:
                     datetime
                     , tag
                     , value
-                    , profit 
-                    , connections
+                    , tag as subnet 
+                    , 'm3' units
                 FROM marts_takadu.rpt_micromedido_takadu
                 where ref_date = '{ref_date_fmt}'
                 """
@@ -157,7 +157,7 @@ def save_list_to_csv_and_zip(data_list: list,
                              ref_date: datetime.date,
                              data_source_name="CAJ_COMSUMPTION",
                              destination_folder=".\\out_micro",
-                             zip_file=True,
+                             zip_file=False,
                              run_script=False):
     """
     Save a list of data to a .csv file, and optionally compress it in a .zip file. 
@@ -287,7 +287,7 @@ def download_and_save(conn, ref_date):
     data_micromedido, header_micromedido = load_data_from_db(conn, ref_date=ref_date)
     if data_micromedido:
         logger.info("Save file for new data [data_micromedido]")
-        save_list_to_csv_and_zip(data_list=data_micromedido, ref_date=ref_date, header=header_micromedido, run_script=True)
+        save_list_to_csv_and_zip(data_list=data_micromedido, ref_date=ref_date, header=header_micromedido, zip_file=False, run_script=True)
 
 @app.task()
 async def run_app(month_ref=Arg('month_ref')):
@@ -334,6 +334,7 @@ def main():
     if args.mes:
         try:
             # Aceita MM/YYYY ou DD/MM/YYYY
+            args.mes = str(args.mes).lstrip()
             if len(args.mes.split('/')) == 2:
                 ref_date = datetime.datetime.strptime('01/' + args.mes, '%d/%m/%Y')
             else:
