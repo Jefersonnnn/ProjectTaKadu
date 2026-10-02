@@ -13,9 +13,7 @@ import logging
 
 from pathlib import Path
 from typing import Any
-from logging import Handler
 
-from redmail import EmailSender
 from rocketry import Rocketry
 from rocketry.args import Arg
 
@@ -41,27 +39,6 @@ global PATH_FILE_ID_SENSORS
 
 
 
-class EmaillNotifyHandler(Handler):
-
-    def __init__(self, level: int = logging.NOTSET, email=None):
-        Handler.__init__(self, level)
-
-        if not email:
-            logger.error("EmaillNotifyHandler: attr 'email' não informado!")
-            raise Exception("attr 'email' não informado!")
-        self._email = email
-
-    def emit(self, record: logging.LogRecord):
-        self._email.send(
-            subject=f'Takadu Service - Log Record: {record.levelname}',
-            text=f"Logging level: {record.levelname}\nMessage: {record.message}",
-            html=f"<ul><li>Logging level: {record.levelname}</li><li>Message: {record.message}</li></ul>",
-            attachments={
-                'app.log': Path("app.log")
-            }
-        )
-
-
 def initial_config(config_file_path) -> bool:
     """
     Initializes the application configuration by reading the values from the provided configuration file.
@@ -77,7 +54,7 @@ def initial_config(config_file_path) -> bool:
                    or configuration settings are missing in the config file.
 
     Note:
-        - This function sets various environment variables and configures the logging system for error notification.
+        - This function sets the application's database and storage environment variables.
         - It assumes that the configuration file is in the format expected by configparser.ConfigParser.
 
     Example:
@@ -114,25 +91,6 @@ def initial_config(config_file_path) -> bool:
         global BASE_DIR
         BASE_DIR = Path(__file__).resolve().parent
 
-        error_notify_email_username = os.environ.get('EMAIL_USERNAME')
-        error_notify_email_password = os.environ.get('EMAIL_PASSWORD')
-
-        email = EmailSender(
-            host="smtp.office365.com",
-            port=587,
-            # use_starttls=True,
-            username=error_notify_email_username,
-            password=error_notify_email_password,
-        )
-
-        email.receivers = config['notify_outlook']['receivers']
-
-        erro_handler = EmaillNotifyHandler(
-            level=logging.ERROR,
-            email=email
-        )
-
-        logger.addHandler(erro_handler)
         return True
     except Exception as e:
         logger.error("ERROR IN THE LOADING OF THE ENVIRONMENT:", e)
@@ -433,7 +391,7 @@ def main():
 
     # Adiciona os argumento de linha de comando
     parser.add_argument('-t', '--tempo', type=int, default=30, help='Tempo em minutos para executar')
-    parser.add_argument('-dr', '--date_range', type=int, default=2, help='Tempo em horas do intervalo de dados do banco.' )
+    parser.add_argument('-dr', '--date_range', type=int, default=144, help='Tempo em horas do intervalo de dados do banco.' )
     parser.add_argument('-ls', '--list_sensors', default='data/sensors.csv',
                         help='Caminho do arquivo para lista dos sensores (IDs)')
 

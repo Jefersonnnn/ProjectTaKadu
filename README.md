@@ -11,12 +11,11 @@ Sistema de coleta e envio de dados de telemetria para análise no ambiente TaKad
 
 ## Pré-requisitos
 
-- Python 3.10 ou superior
+- Python 3.10 ou 3.11
 - Módulos Python:
   - psycopg2 (conexão PostgreSQL)
   - pandas (manipulação de dados)
   - rocketry (agendamento)
-  - redmail (notificações)
 - Conta Google Cloud com acesso ao Storage
 - Acesso ao banco de dados Telelog
 
@@ -60,9 +59,6 @@ port = 5432
 PATH_FILE_ID_SENSORS = ./data/sensors.csv
 PATH_FOLDER_OUT = ./out
 
-[notify_outlook]
-receivers = seu.email@exemplo.com
-
 [google_cloud]
 agua_dir = ./upload/
 esgoto_dir = ./upload/esgoto/
@@ -76,24 +72,18 @@ Configure as variáveis de ambiente necessárias:
 ```cmd
 setx PG_USER "seu_usuario_db"
 setx PG_PASSWORD "sua_senha_db"
-setx EMAIL_USERNAME "seu_email"
-setx EMAIL_PASSWORD "sua_senha_email"
 ```
 
 #### Windows (PowerShell)
 ```powershell
 $env:PG_USER="seu_usuario_db"
 $env:PG_PASSWORD="sua_senha_db"
-$env:EMAIL_USERNAME="seu_email"
-$env:EMAIL_PASSWORD="sua_senha_email"
 ```
 
 #### Linux/Mac
 ```bash
 export PG_USER="seu_usuario_db"
 export PG_PASSWORD="sua_senha_db"
-export EMAIL_USERNAME="seu_email"
-export EMAIL_PASSWORD="sua_senha_email"
 ```
 
 ### 3. Lista de Sensores

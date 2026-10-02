@@ -87,5 +87,4 @@ UPLOAD_DONE=./out/uploaded
 
 ### 5.1 Logs
 - Logs são salvos em `app.log`
-- Notificações de erro são enviadas por email
 - Logs incluem timestamps e detalhes do erro
